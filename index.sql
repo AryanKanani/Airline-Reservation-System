@@ -134,9 +134,9 @@ CREATE TABLE bookings (
     booking_id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(user_id),
     booking_reference VARCHAR(10) UNIQUE NOT NULL,
-    total_amount NUMERIC(10,2) NOT NULL CHECK (total_amount > 0),
+    total_amount NUMERIC(10,2) NOT NULL,
     currency CHAR(3) NOT NULL CHECK (currency IN ('INR', 'USD', 'EUR')),
-    booking_status VARCHAR(20) NOT NULL CHECK (booking_status IN ('pending', 'confirmed', 'cancelled')),
+    booking_status VARCHAR(20) NOT NULL CHECK (booking_status IN ('confirmed', 'cancelled')),
     booked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -148,7 +148,7 @@ CREATE TABLE tickets (
     flight_id UUID NOT NULL REFERENCES flight_schedules(flight_id),
     ticket_number VARCHAR(20) UNIQUE NOT NULL,
     cabin_class VARCHAR(20) NOT NULL CHECK (cabin_class IN ('economy', 'business', 'first')),
-    ticket_price NUMERIC(10,2) NOT NULL CHECK (ticket_price > 0),
+    ticket_price NUMERIC(10,2) NOT NULL,
     fare_class CHAR(1),
     status VARCHAR(20) NOT NULL CHECK (status IN ('booked', 'checked-in', 'boarded', 'cancelled')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -156,16 +156,20 @@ CREATE TABLE tickets (
 
 CREATE TABLE payments (
     payment_id UUID PRIMARY KEY,
-    booking_id UUID NOT NULL UNIQUE REFERENCES bookings(booking_id),
-    amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+    booking_id UUID NOT NULL REFERENCES bookings(booking_id),
+    amount NUMERIC(10,2) NOT NULL,
     currency CHAR(3) NOT NULL CHECK (currency IN ('INR', 'USD', 'EUR')),
     payment_method VARCHAR(50) NOT NULL,
-    payment_status VARCHAR(20) NOT NULL CHECK (payment_status IN ('pending', 'completed', 'failed', 'refunded')),
-    transaction_ref VARCHAR(100) UNIQUE,
+    payment_status VARCHAR(20) NOT NULL 
+        CHECK (payment_status IN ('completed', 'refunded')),
+    transaction_ref VARCHAR(100),
     gateway VARCHAR(50),
-    paid_at TIMESTAMPTZ,
+    paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+COMMENT ON TABLE payments IS 'Portfolio mock: Payment validation removed for demonstration purposes';
+COMMENT ON COLUMN payments.amount IS 'Portfolio mock: No actual transaction validation required';
 
 -- Module 6 - Crew Management
 CREATE TABLE crew_members (
@@ -189,20 +193,46 @@ CREATE TABLE crew_schedules (
 );
 
 -- Module 7 - Baggage
-CREATE TABLE baggage (
-    baggage_id UUID PRIMARY KEY,
-    ticket_id UUID NOT NULL REFERENCES tickets(ticket_id),
-    tag_number VARCHAR(20) UNIQUE NOT NULL,
-    weight_kg NUMERIC(5,2) NOT NULL CHECK (weight_kg > 0),
-    baggage_type VARCHAR(20) NOT NULL CHECK (baggage_type IN ('checked', 'cabin', 'sports', 'fragile')),
-    status VARCHAR(20) NOT NULL CHECK (status IN ('checked-in', 'loaded', 'arrived', 'claimed', 'lost')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+CREATE VIEW flight_manifest AS
+SELECT 
+    t.ticket_id,
+    p.passenger_id,
+    p.first_name || ' ' || p.last_name AS full_name,
+    sc.seat_number,
+    sc.cabin_class,
+    b.tag_number,
+    b.weight_kg,
+    b.baggage_type
+FROM tickets t
+JOIN passengers p ON t.passenger_id = p.passenger_id
+JOIN seat_inventory si ON t.flight_id = si.flight_id
+JOIN seat_configurations sc ON si.seat_config_id = sc.seat_config_id
+LEFT JOIN baggage b ON t.ticket_id = b.ticket_id;
+
+-- Sample data for portfolio demonstration
+-- These inserts simulate mock transactions without real validation
+
+-- Create sample bookings
+INSERT INTO bookings (booking_id, user_id, booking_reference, total_amount, currency, booking_status, booked_at)
+VALUES 
+(gen_random_uuid(), 'auth0|123456789', 'PORTFOLIO-001', 50000, 'INR', 'confirmed', NOW()),
+(gen_random_uuid(), 'auth0|987654321', 'PORTFOLIO-002', 45000, 'USD', 'confirmed', NOW());
+
+-- Create sample payments
+INSERT INTO payments (payment_id, booking_id, amount, currency, payment_method, payment_status)
+SELECT 
+    gen_random_uuid(), 
+    b.booking_id, 
+    b.total_amount, 
+    b.currency,
+    'credit_card',
+    'completed'
+FROM bookings b
+WHERE b.booking_reference LIKE 'PORTFOLIO%';
 
 -- Indexes
 CREATE INDEX idx_flight_schedules_flight_number ON flight_schedules(flight_number);
 CREATE INDEX idx_tickets_ticket_number ON tickets(ticket_number);
-CREATE INDEX idx_payments_transaction_ref ON payments(transaction_ref);
 
 -- Triggers (example - automatic timestamp update)
 CREATE OR REPLACE FUNCTION update_updated_at_column()
