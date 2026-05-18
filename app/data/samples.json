@@ -1,0 +1,30 @@
+{
+  "airports": [
+    {
+      "iata_code": "BOM",
+      "name": "Chhatrapati Shivaji Maharaj International Airport",
+      "city": "Mumbai",
+      "country": "India",
+      "timezone": "Asia/Kolkata"
+    },
+    {
+      "iata_code": "DEL",
+      "name": "Indira Gandhi International Airport",
+      "city": "New Delhi",
+      "country": "India",
+      "timezone": "Asia/Kolkata"
+    }
+  ],
+  "aircraft": [
+    {
+      "model_name": "Boeing 737-800",
+      "total_seats": 189,
+      "range_km": 5750
+    },
+    {
+      "model_name": "Airbus A320neo",
+      "total_seats": 180,
+      "range_km": 6200
+    }
+  ]
+}
