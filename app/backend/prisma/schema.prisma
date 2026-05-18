@@ -1,0 +1,219 @@
+// Prisma schema for Airline Management System
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Module 1 - Authentication
+model User {
+  id String @id @default(uuid())
+  email String @unique
+  passwordHash String
+  role String
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Passenger {
+  id String @id @default(uuid())
+  userId String @unique
+  firstName String
+  lastName String
+  passportNumber String @unique
+  nationality String
+  dateOfBirth DateTime
+  gender String?
+  phone String?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
+}
+
+// Module 2 - Airport Infrastructure
+model Airport {
+  id String @id @default(uuid())
+  iataCode String @unique
+  name String
+  city String
+  country String
+  timezone String
+  latitude Float?
+  longitude Float?
+  createdAt DateTime @default(now())
+}
+
+model Terminal {
+  id String @id @default(uuid())
+  airportId String
+  terminalName String
+  terminalType String
+  createdAt DateTime @default(now())
+  airport Airport @relation(fields: [airportId], references: [id])
+}
+
+model Gate {
+  id String @id @default(uuid())
+  terminalId String
+  gateCode String
+  status String
+  createdAt DateTime @default(now())
+  terminal Terminal @relation(fields: [terminalId], references: [id])
+}
+
+// Module 3 - Aircraft & Fleet
+model AircraftModel {
+  id String @id @default(uuid())
+  manufacturer String
+  modelName String
+  totalSeats Int
+  rangeKm Int
+  cruiseSpeedKmh Int?
+  createdAt DateTime @default(now())
+}
+
+model Aircraft {
+  id String @id @default(uuid())
+  modelId String
+  tailNumber String @unique
+  status String
+  manufactureYear Int?
+  lastMaintenanceAt DateTime?
+  totalFlightHours Float?
+  createdAt DateTime @default(now())
+  model AircraftModel @relation(fields: [modelId], references: [id])
+}
+
+model SeatConfiguration {
+  id String @id @default(uuid())
+  modelId String
+  seatNumber String
+  cabinClass String
+  seatType String
+  hasExtraLegroom Boolean @default(false)
+  createdAt DateTime @default(now())
+  model AircraftModel @relation(fields: [modelId], references: [id])
+}
+
+// Module 4 - Flight Management
+model Route {
+  id String @id @default(uuid())
+  originAirportId String
+  destinationAirportId String
+  distanceKm Int
+  estimatedDurationMin Int
+  routeType String
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  origin Airport @relation(fields: [originAirportId], references: [id], name: "origin")
+  destination Airport @relation(fields: [destinationAirportId], references: [id], name: "destination")
+}
+
+model FlightSchedule {
+  id String @id @default(uuid())
+  routeId String
+  aircraftId String
+  gateId String?
+  flightNumber String
+  departureTime DateTime
+  arrivalTime DateTime
+  status String
+  createdAt DateTime @default(now())
+  route Route @relation(fields: [routeId], references: [id])
+  aircraft Aircraft @relation(fields: [aircraftId], references: [id])
+  gate Gate @relation(fields: [gateId], references: [id], name: "gate")
+}
+
+model SeatInventory {
+  id String @id @default(uuid())
+  flightId String
+  seatConfigId String
+  status String
+  ticketId String?
+  reservedAt DateTime?
+  createdAt DateTime @default(now())
+  flight FlightSchedule @relation(fields: [flightId], references: [id])
+  seatConfig SeatConfiguration @relation(fields: [seatConfigId], references: [id])
+  ticket Ticket @relation(fields: [ticketId], references: [id], name: "ticket")
+}
+
+model FlightStatusLog {
+  id String @id @default(uuid())
+  flightId String
+  oldStatus String?
+  newStatus String
+  changedAt DateTime @default(now())
+  changedBy String?
+  reason String?
+  flight FlightSchedule @relation(fields: [flightId], references: [id])
+}
+
+// Module 5 - Booking System
+model Booking {
+  id String @id @default(uuid())
+  userId String
+  bookingReference String @unique
+  totalAmount Float
+  currency String
+  bookingStatus String
+  bookedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Ticket {
+  id String @id @default(uuid())
+  bookingId String
+  passengerId String
+  flightId String
+  ticketNumber String @unique
+  cabinClass String
+  ticketPrice Float
+  fareClass String?
+  status String
+  createdAt DateTime @default(now())
+  booking Booking @relation(fields: [bookingId], references: [id])
+  passenger Passenger @relation(fields: [passengerId], references: [id])
+  flight FlightSchedule @relation(fields: [flightId], references: [id])
+}
+
+model Payment {
+  id String @id @default(uuid())
+  bookingId String
+  amount Float
+  currency String
+  paymentMethod String
+  paymentStatus String
+  transactionRef String?
+  gateway String?
+  paidAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  booking Booking @relation(fields: [bookingId], references: [id])
+}
+
+// Module 6 - Crew Management
+model CrewMember {
+  id String @id @default(uuid())
+  userId String?
+  firstName String
+  lastName String
+  crewType String
+  licenseNumber String @unique
+  licenseExpiry DateTime
+  dateOfBirth DateTime
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], name: "user")
+}
+
+model CrewSchedule {
+  id String @id @default(uuid())
+  crewId String
+  flightId String
+  roleOnFlight String
+  assignedAt DateTime @default(now())
+  crewMember CrewMember @relation(fields: [crewId], references: [id])
+  flight FlightSchedule @relation(fields: [flightId], references: [id])
+}
